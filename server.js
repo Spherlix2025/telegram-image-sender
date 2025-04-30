@@ -1,38 +1,41 @@
-
 const express = require('express');
-const axios = require('axios');
-const bodyParser = require('body-parser');
-
-const TELEGRAM_TOKEN = '7605499569:AAFgZHwE0DbXyCzQzFHGiS-Fogiw6_YrQfw';
-const CHAT_ID = '885250652';
-const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendPhoto`;
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
-app.use(bodyParser.json({ limit: '10mb' }));
+const PORT = process.env.PORT || 10000;
 
-app.post('/send', async (req, res) => {
-  const { imageUrl, caption } = req.body;
+// === Настройки Telegram ===
+const TELEGRAM_TOKEN = '7605499569:AAFgZHwE0DbXyCzQzFHGiS-Fogiw6_YrQfw';
+const CHAT_ID = '885250652';
 
-  if (!imageUrl) {
-    return res.status(400).json({ error: 'imageUrl is required' });
-  }
+const bot = new TelegramBot(TELEGRAM_TOKEN);
 
-  try {
-    const telegramResponse = await axios.post(TELEGRAM_API, {
-      chat_id: CHAT_ID,
-      photo: imageUrl,
-      caption: caption || '',
-    });
+// === Настройки загрузки файлов ===
+const upload = multer({ dest: 'uploads/' });
 
-    res.status(200).json({ success: true, result: telegramResponse.data });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to send image', details: error.response?.data });
-  }
-});
-
+// === Обслуживание index.html ===
 app.get('/', (req, res) => {
-  res.send('Telegram Image Sender is running');
+  res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// === Загрузка изображения и отправка в Telegram ===
+app.post('/upload', upload.single('image'), (req, res) => {
+  const filePath = req.file.path;
+
+  bot.sendPhoto(CHAT_ID, fs.createReadStream(filePath), {
+    caption: 'Картинка загружена через форму',
+  }).then(() => {
+    fs.unlinkSync(filePath); // удалить временный файл
+    res.send('Картинка отправлена в Telegram!');
+  }).catch((err) => {
+    console.error(err);
+    res.status(500).send('Ошибка отправки в Telegram');
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
