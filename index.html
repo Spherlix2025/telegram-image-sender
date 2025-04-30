@@ -1,45 +1,46 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <title>Отправка изображения в Telegram</title>
+  <title>Spherlix | Telegram Image Uploader</title>
 </head>
-<body style="background:#111; color:#fff; font-family:sans-serif; padding:40px">
-  <h2>Форма отправки изображения</h2>
-
-  <form id="sendForm">
-    <label>Ссылка на изображение:</label><br>
-    <input type="text" name="imageUrl" style="width:100%" value="https://example.com/test.png" required><br><br>
-
-    <label>Описание:</label><br>
-    <input type="text" name="caption" style="width:100%" value="Тестовая картинка" required><br><br>
-
-    <label>Telegram chat ID:</label><br>
-    <input type="text" name="chatId" style="width:100%" value="885250652" required><br><br>
-
-    <button type="submit">Отправить</button>
-  </form>
-
-  <div id="result" style="margin-top:20px;"></div>
+<body style="background:black;color:white;text-align:center;padding:30px;font-family:sans-serif">
+  <h2>Загрузить картинку в Telegram</h2>
+  <input type="file" id="imageInput" accept="image/*" />
+  <br><br>
+  <img id="preview" style="max-width:100%;max-height:300px;border-radius:16px;display:none" />
+  <p id="status"></p>
 
   <script>
-    document.getElementById('sendForm').addEventListener('submit', async function(e) {
-      e.preventDefault();
-      const data = {
-        imageUrl: this.imageUrl.value,
-        caption: this.caption.value,
-        chatId: this.chatId.value
+    const input = document.getElementById("imageInput");
+    const preview = document.getElementById("preview");
+    const status = document.getElementById("status");
+
+    input.addEventListener("change", async () => {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = reader.result.split(",")[1];
+        preview.src = reader.result;
+        preview.style.display = "block";
+        status.textContent = "Отправка...";
+        try {
+          const res = await fetch("/api/send", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              imageBase64: base64,
+              caption: "Spherlix тестовая картинка"
+            }),
+          });
+          const data = await res.json();
+          status.textContent = data.success ? "Готово!" : "Ошибка: " + data.error;
+        } catch (e) {
+          status.textContent = "Ошибка сети";
+        }
       };
-
-      const response = await fetch('https://telegram-image-sender.onrender.com/send-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-
-      const result = await response.json();
-      document.getElementById('result').innerText = JSON.stringify(result, null, 2);
+      reader.readAsDataURL(file);
     });
   </script>
 </body>
